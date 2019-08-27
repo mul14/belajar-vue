@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" v-cloak class="container my-5">
+        <div class="row">
+            <div class="col-12">
+
+                <h1>Product</h1>
+                <hr>
+
+                <div class="card mb-5">
+                    <div class="card-header">
+                        Add new product
+                    </div>
+                    <div class="card-body">
+                        <form @submit.prevent="add">
+                            <div class="form-group">
+                                <label for="name" class="d-flex justify-content-between">
+                                    <span>Product Name</span>
+                                    <span class="text-danger" v-if="errors.name">{{ errors.name }}</span>
+                                </label>
+                                <input type="text" v-model.trim="name" class="form-control"
+                                    placeholder="Put the name of product">
+                            </div>
+                            <div class="form-group">
+                                <label for="price" class="d-flex justify-content-between">
+                                    <span>Price</span>
+                                    <span class="text-danger" v-if="errors.price">{{ errors.price }}</span>
+                                </label>
+                                <div class="input-group mb-3">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text" id="basic-addon1">Rp</span>
+                                    </div>
+                                    <input type="number" min="0" v-model="price" class="form-control">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary">+ Add</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+
+                <div class="text-center" v-if="loading">
+                    <img src="http://samherbert.net/svg-loaders/svg-loaders/three-dots.svg" alt="">
+                    <div>Loading...</div>
+                </div>
+
+                <div v-if="!loading">
+
+                    <form @submit.prevent="search" class="py-5">
+                        <div class="input-group mb-3">
+                            <input type="search" v-model="keyword" class="form-control" placeholder="Type to search...">
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-primary">Search</button>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" @click="sortBy('price', 'asc')">Lowest Price</button>
+                        <button class="btn btn-primary" @click="sortBy('price', 'desc')">Highest Price</button>
+
+                    </form>
+
+                    <div v-if="!items.length" class="text-center lead">
+                        Hiks ... Data tidak ditemukan :(
+                    </div>
+
+                    <table class="table" style="min-height: 300px;" v-if="items.length > 0">
+                        <thead class="bg-primary text-white">
+                            <tr>
+                                <th width="10%">#</th>
+                                <th width="40%">
+                                    Nama
+                                </th width="40%">
+                                <th width="10%" class="text-right">
+                                    Harga
+                                </th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, index) in items" :key="index">
+                                <td>{{ ++index }}</td>
+                                <td>
+                                    <span v-if="!item.editing">{{ item.name }}</span>
+                                    <div v-if="item.editing">
+                                        <input type="text" v-model="item.name" class="form-control">
+                                    </div>
+                                </td>
+                                <td class="text-right">
+                                    <span v-if="!item.editing">Rp{{ item.price | money }}</span>
+                                    <div v-if="item.editing">
+                                        <input type="number" min="0" v-model="item.price" class="form-control text-right">
+                                    </div>
+                                </td>
+                                <td class="text-right">
+                                    <button v-if="!item.editing" @click="edit(item)"
+                                        class="btn btn-outline-secondary"><i class="fa fa-pencil"></i> Edit</button>
+                                    <button v-if="item.editing" @click="remove(item)"
+                                        class="btn btn-outline-secondary"><i class="fa fa-trash"></i> Delete</button>
+                                    <button v-if="item.editing" @click="update(item)"
+                                        class="btn btn-outline-secondary"><i class="fa fa-save"></i> Update</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-primary text-white">
+                                <td></td>
+                                <td><strong>Total</strong></td>
+                                <td class="text-right"><strong>Rp{{ total | money }}</strong></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="vue.js"></script>
+    <!-- <script src="https://unpkg.com/axios/dist/axios.js"></script> -->
+    <script>
+        Vue.filter('money', (value) => {
+            return new Intl.NumberFormat(['id']).format(value);
+        })
+
+        new Vue({
+            el: '#app',
+
+            async mounted() {
+                this.items = this.originalItems
+                this.loading = true
+                // const response = await axios.get('http://cfc40bbc.ngrok.io/api/items')
+                // this.items = response.data
+                this.loading = false
+            },
+
+            data() {
+                return {
+                    loading: false,
+                    keyword: '',
+                    name: '',
+                    price: '',
+                    errors: {},
+                    items: [],
+                    originalItems: [
+                        { id: 1, editing: false, name: 'Apel', price: 15000 },
+                        { id: 2, editing: false, name: 'Jeruk', price: 16000 },
+                        { id: 3, editing: false, name: 'Pisang', price: 25000 },
+                        { id: 4, editing: false, name: 'Terong', price: 5000 },
+                        { id: 5, editing: false, name: 'Cabe', price: 8100 },
+                    ],
+                }
+            },
+
+            computed: {
+                total() {
+                    return this.items
+                        .map(item => Number(item.price))
+                        .reduce((prev, current) => prev + current, 0)
+                },
+            },
+
+            methods: {
+                add() {
+                    this.errors = {}
+
+                    if (!this.name) {
+                        this.errors.name = 'Nama harus diisi'
+                    }
+
+                    if (this.price <= 0) {
+                        this.errors.price = 'Harga harus di atas 1'
+                    }
+
+                    if (Object.values(this.errors).length > 0) {
+                        return
+                    }
+
+                    this.items.unshift({
+                        id: Date.now(),
+                        name: this.name,
+                        price: this.price,
+                        editing: false,
+                    })
+                    this.name = ''
+                    this.price = ''
+                },
+
+                edit(item) {
+                    item.editing = true
+                },
+
+                update(item) {
+                    item.editing = false
+                },
+
+                remove(item) {
+                    const index = this.items.indexOf(item)
+                    this.items.splice(index, 1)
+                },
+
+                search() {
+                    this.items = this.originalItems.filter(item => {
+                        return item.name.toLowerCase().includes(this.keyword.toLowerCase())
+                    })
+                },
+
+                sortBy(type, orderBy = 'asc') {
+                    this.items = this.originalItems.sort((a, b) => {
+                        return (orderBy === 'asc')
+                            ? a[type] - b[type]
+                            : b[type] - a[type]
+                    })
+                },
+            }
+        })
+    </script>
+</body>
+
+</html>
